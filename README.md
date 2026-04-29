@@ -1,4 +1,4 @@
-# Robomaster TT Activities - First Practice
+# Robomaster TT Activities
 
 This project contains drone flight control and detection utilities for Robomaster TT activities.
 
