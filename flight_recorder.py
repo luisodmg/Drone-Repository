@@ -1,71 +1,86 @@
-from djitellopy import Tello
+import robomaster
+from robomaster import robot
 import cv2
 import time
-import os
-
-# Save the video in the same folder as this script (Third-Practice/)
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-OUTPUT_FILE = os.path.join(SCRIPT_DIR, "circle_flight.mp4")
-FPS = 30
-RESOLUTION = (960, 720)   # Tello default stream resolution
 
 if __name__ == '__main__':
-    tl_drone = Tello()
-    tl_drone.connect()
+    tl_drone = robot.Drone()
+    tl_drone.initialize()
+    tl_flight = tl_drone.flight # Necesario para los comandos de vuelo
+    
+    # Get battery status
+    tl_battery = tl_drone.battery
+    battery_info = tl_battery.get_battery()
+    print("Drone battery soc: {0}".format(battery_info))
 
-    # Check battery before takeoff
-    battery = tl_drone.get_battery()
-    print(f"Battery: {battery}%")
-    if battery < 15:
-        print("Battery too low to fly safely.")
-        tl_drone.end()
-        exit()
+    # Setting up camera
+    tl_camera = tl_drone.camera
+    tl_camera.start_video_stream(display=False)
 
-    # Open camera resources
-    tl_drone.streamon()
-    frame_read = tl_drone.get_frame_read()
-
-    # Initialize video writer — saves as .mp4
+    # --- Video Recording Setup ---
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-    out = cv2.VideoWriter(OUTPUT_FILE, fourcc, FPS, RESOLUTION)
+    frame_width = 480
+    frame_height = 360
+    fps = 30.0 
+    
+    # Crea el objeto que escribirá el video
+    out = cv2.VideoWriter('video_circulo.mp4', fourcc, fps, (frame_width, frame_height))
 
-    # Take off
-    tl_drone.takeoff()
-    time.sleep(2)
+    print("Despegando...")
+    tl_flight.takeoff().wait_for_completed()
+    time.sleep(2) # Pausa para estabilizarse en el aire
 
-    print(f"Recording video to '{OUTPUT_FILE}' — performing circular trajectory...")
+    print("Iniciando vuelo en círculo y grabando...")
+    start_time = time.time()
+    flight_duration = 8.0 # Duración en segundos del vuelo en círculo
 
-    # Circular trajectory parameters (same as circular_trajectory.py)
-    YAW_SPEED = 30
-    FORWARD_SPEED = 20   # lower = smaller circle
-    steps = 72
-    step_duration = 0.33  # seconds per step
+    try:
+        while True:
+            # Read the image from the camera
+            frame = tl_camera.read_cv2_image(strategy="newest", timeout=5)
+            
+            if frame is not None:
+                # Resize to match our VideoWriter dimensions
+                frame = cv2.resize(frame, (frame_width, frame_height))
+                
+                # Escribir el fotograma en el archivo de video
+                out.write(frame)
+                
+                # Display the frame so you can see what is being recorded
+                cv2.imshow("Recording and Flying...", frame)
+                
+            # --- Lógica de Vuelo (Círculo) ---
+            elapsed_time = time.time() - start_time
+            
+            if elapsed_time < flight_duration:
+                # rc(roll, pitch, throttle, yaw)
+                # pitch = 30 (velocidad hacia adelante)
+                # yaw = 45 (velocidad de giro en grados/seg)
+                tl_flight.rc(0, 30, 0, 45)
+            else:
+                # Se acabó el tiempo estipulado
+                print("Tiempo completado. Deteniendo rotación...")
+                tl_flight.rc(0, 0, 0, 0)
+                time.sleep(1) # Pausa breve para estabilizar antes de aterrizar
+                break # Rompemos el ciclo while para ir al finally
+                
+            # Interrupción de emergencia manual
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                print("Aterrizaje de emergencia solicitado por teclado...")
+                break
 
-    for _ in range(steps):
-        tl_drone.send_rc_control(0, FORWARD_SPEED, 0, YAW_SPEED)
-
-        # Record frame on every rc step
-        img = frame_read.frame
-        img_resized = cv2.resize(img, RESOLUTION)
-        out.write(img_resized)
-        cv2.imshow("Drone (recording)", img_resized)
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
-
-        time.sleep(step_duration)
-
-    # Stop all motion — mandatory after rc commands
-    tl_drone.send_rc_control(0, 0, 0, 0)
-    time.sleep(2)
-
-    cv2.destroyAllWindows()
-
-    # Land before releasing resources
-    tl_drone.land()
-
-    # Release video writer and camera resources
-    out.release()
-    tl_drone.streamoff()
-    tl_drone.end()
-
-    print(f"Video saved to '{OUTPUT_FILE}'")
+    except KeyboardInterrupt:
+        print("Remote stop...")
+        
+    finally:
+        # Cerrar y liberar todos los recursos
+        print("Aterrizando...")
+        tl_flight.rc(0, 0, 0, 0) # Aseguramos que los motores paren el desplazamiento
+        tl_flight.land().wait_for_completed()
+        
+        print("Guardando el video y cerrando recursos...")
+        out.release() 
+        tl_camera.stop_video_stream()
+        cv2.destroyAllWindows()
+        tl_drone.close()
+        print("¡Video guardado como video_circulo.mp4!")
