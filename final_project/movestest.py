@@ -61,7 +61,7 @@ def ejecutar_tornado(tl_drone):
     estado_dron["ultimo_visto"] = time.time()
     estado_dron["modo"] = "HOVERING"
 
-def ejecutar_ocho(tl_drone):
+def ejecutar_circulo(tl_drone):
     print("\n[MANIOBRA] Iniciando CÍRCULO...")
 
     # Pequeña pausa para estabilizar antes de comenzar
@@ -96,7 +96,7 @@ def main():
     tl_camera.start_video_stream(display=False)
 
     colores = {
-        "MORADO": (np.array([125, 50, 50]), np.array([155, 255, 255]), (255, 0, 255), "FIGURE 8"),
+        "MORADO": (np.array([125, 50, 50]), np.array([155, 255, 255]), (255, 0, 255), "CIRCLE"),
         "NARANJA": (
             np.array([5, 80, 80]),
             np.array([30, 255, 255]),
@@ -177,9 +177,9 @@ def main():
                             estado_dron["modo"] = "MANIOBRANDO"
                             threading.Thread(target=ejecutar_tornado, args=(tl_drone,)).start()
                             
-                        elif accion_en_mira == "FIGURE 8":
+                        elif accion_en_mira == "CIRCLE":
                             estado_dron["modo"] = "MANIOBRANDO"
-                            threading.Thread(target=ejecutar_ocho, args=(tl_drone,)).start()
+                            threading.Thread(target=ejecutar_circulo, args=(tl_drone,)).start()
                             
                         elif accion_en_mira == "LAND":
                             print("\n[VUELO] Señal de aterrizaje (VERDE) confirmada.")
