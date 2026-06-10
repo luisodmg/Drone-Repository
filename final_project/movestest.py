@@ -62,35 +62,25 @@ def ejecutar_tornado(tl_drone):
     estado_dron["modo"] = "HOVERING"
 
 def ejecutar_ocho(tl_drone):
-    print("\n[MANIOBRA] Iniciando FIGURE 8 SUAVE con protocolo de seguridad...")
-    
-    # 1. Girar 180 grados
-    tl_drone.flight.rotate(angle=180).wait_for_completed()
-    
-    # 2. Avanzar para ganar espacio (Reducido de 80 a 40 para no chocar)
-    tl_drone.flight.forward(distance=40).wait_for_completed()
-    
-    # Círculo Izquierdo (Avance más lento [b=25], giro más cerrado [d=-85])
-    print("   -> Trazando círculo izquierdo más cerrado...")
-    tl_drone.flight.rc(a=0, b=25, c=0, d=-85)
-    time.sleep(3.5) 
-    
-    # Círculo Derecho (Avance más lento [b=25], giro más cerrado [d=85])
-    print("   -> Trazando círculo derecho más cerrado...")
-    tl_drone.flight.rc(a=0, b=25, c=0, d=85)
-    time.sleep(3.5) 
-    
-    # Detener comandos RC
-    tl_drone.flight.rc(a=0, b=0, c=0, d=0)
+    print("\n[MANIOBRA] Iniciando CÍRCULO...")
+
+    # Pequeña pausa para estabilizar antes de comenzar
     time.sleep(1)
-    
-    # 4. Regresar (retroceder la misma distancia)
-    tl_drone.flight.backward(distance=40).wait_for_completed()
-    
-    # 5. Girar 180 grados de regreso
-    tl_drone.flight.rotate(angle=180).wait_for_completed()
-    
-    print("[MANIOBRA] Figure 8 terminado. Volviendo a escanear...")
+
+    # Ejecutar movimiento circular
+    print("   -> Ejecutando círculo...")
+
+    for _ in range(2):
+        tl_drone.flight.rc(a=0, b=30, c=0, d=40)
+        time.sleep(8)
+
+    tl_drone.flight.rc(a=0, b=0, c=0, d=0)
+
+    # Dar tiempo para estabilizarse
+    time.sleep(2)
+
+    print("[MANIOBRA] Círculo terminado. Volviendo a escanear...")
+
     estado_dron["ultimo_visto"] = time.time()
     estado_dron["modo"] = "HOVERING"
 
@@ -107,7 +97,12 @@ def main():
 
     colores = {
         "MORADO": (np.array([125, 50, 50]), np.array([155, 255, 255]), (255, 0, 255), "FIGURE 8"),
-        "NARANJA": (np.array([10, 160, 160]), np.array([25, 255, 255]), (0, 165, 255), "TORNADO"),
+        "NARANJA": (
+            np.array([5, 80, 80]),
+            np.array([30, 255, 255]),
+            (0, 165, 255),
+            "TORNADO"
+        ),
         "CELESTE": (np.array([85, 100, 100]), np.array([110, 255, 255]), (255, 255, 0), "VERTICAL SQUARE"),
         "VERDE": (np.array([40, 50, 50]), np.array([80, 255, 255]), (0, 255, 0), "LAND")
     }
